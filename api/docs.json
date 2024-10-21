@@ -1,0 +1,141 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Kartjis Notification Docs",
+    "version": "1.0",
+    "description": "kartjis notification api"
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:9998",
+      "description": "local"
+    }
+  ],
+  "paths": {
+    "/{topicName}": {
+      "post": {
+        "summary": "post a message to a topic",
+        "description": "post message to a topic if topic doesn't exist it will create the topic and publish a message to the topic",
+        "responses": {
+          "200": {
+            "description": "publish message successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/nonGetResponse"
+                },
+                "example": {
+                  "status": "SUCCESS",
+                  "data": "successfully publish message to topic"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "bad request error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/nonGetResponse"
+                },
+                "examples": {
+                  "wrong request body": {
+                    "description": "this is a response when topicName is empty",
+                    "value": {
+                      "status": "FAILED",
+                      "data": "id and topic is not formed correctly"
+                    }
+                  },
+                  "empty message": {
+                    "description": "this is a response if message is empty",
+                    "value": {
+                      "status": "FAILED",
+                      "data": "message can't be empty"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/nonGetResponse"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "description": "payload to publish message to a topic",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "message": {
+                    "type": "string",
+                    "minLength": 1,
+                    "nullable": false
+                  }
+                }
+              },
+              "examples": {
+                "sample1": {
+                  "value": {
+                    "message": "this is sample message"
+                  }
+                },
+                "sample2": {
+                  "value": {
+                    "message": "hello world"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "topicName",
+            "in": "path",
+            "required": true,
+            "allowEmptyValue": false,
+            "schema": {
+              "description": "topic name to publish message to",
+              "type": "string",
+              "nullable": false,
+              "minLength": 1
+            },
+            "examples": {
+              "sample1": {
+                "value": "sample-topic"
+              },
+              "sample2": {
+                "value": "example"
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "nonGetResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "data": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
