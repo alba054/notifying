@@ -14,15 +14,21 @@ import (
 
 type NotificationServiceImpl struct {
 	topicRepository   topic.TopicRepository
-	messageStorage    model.MessageStorage
+	messageStorage    *model.MessageStorage
 	messageRepository message.MessageRepository
 	db                *sql.DB
 }
 
-func New(topicRepo topic.TopicRepository, messageRepo message.MessageRepository, db *sql.DB) *NotificationServiceImpl {
+func New(
+	topicRepo topic.TopicRepository,
+	messageRepo message.MessageRepository,
+	db *sql.DB,
+	messageStorage *model.MessageStorage,
+) *NotificationServiceImpl {
 	return &NotificationServiceImpl{
 		topicRepository:   topicRepo,
 		messageRepository: messageRepo,
+		messageStorage:    messageStorage,
 		db:                db,
 	}
 }
@@ -70,7 +76,9 @@ func (s *NotificationServiceImpl) AddMessageToTopic(ctx context.Context, payload
 	}
 
 	// then push message to local storage
+	// this will also sync the subscribers's queue
+	// all messages that are in master queue will be moved to each subscribers's queue
 	s.messageStorage.Get(payload.Topic).PushToMaster(payload.Message)
-	
+
 	return nil
 }
