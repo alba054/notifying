@@ -22,20 +22,24 @@ func newTopicStorage(topicName string) *topicStorage {
 	}
 }
 
+// get topic subscribers by id
 func (storage *topicStorage) Get(subId string) *topicSubscriber {
 	return storage.subscribers[subId]
 }
 
-func (storage *topicStorage) Set(subId string, value *topicSubscriber) error {
+// add new subscriber to the topic
+func (storage *topicStorage) Set(subId string) error {
 	if _, exists := storage.subscribers[subId]; exists {
 		return errors.New("subscriber has been set")
 	}
 
-	storage.subscribers[subId] = value
+	storage.subscribers[subId] = newTopicSubscriber(subId)
 
 	return nil
 }
 
+// push message to master queue
+// then syncronize it to all subscribers's queue
 func (storage *topicStorage) PushToMaster(message string) {
 	storage.mu.Lock()
 	storage.masterQueue.Enqueue(message)
@@ -53,19 +57,19 @@ func (storage *topicStorage) syncSubscriberQ() {
 	wg := sync.WaitGroup{}
 	for {
 		storage.mu.Lock()
-		message = storage.masterQueue.Dequeue()
+		message = storage.masterQueue.Dequeue() // * i'm still not sure if this should be locked
 		storage.mu.Unlock()
 		if message == nil {
 			break
 		}
 
-		for key := range storage.subscribers {
+		for _, subscriber := range storage.subscribers {
 			wg.Add(1)
 			go func() {
-				storage.subscribers[key].Set(*message)
+				subscriber.Set(*message)
 				wg.Done()
 			}()
 		}
+		wg.Wait()
 	}
-	wg.Wait()
 }

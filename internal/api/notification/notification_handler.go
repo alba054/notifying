@@ -1,12 +1,15 @@
 package notification
 
 import (
+	"alba054/kartjis-notify/internal/exception"
 	"alba054/kartjis-notify/internal/model/request"
 	webresponse "alba054/kartjis-notify/internal/model/web"
 	"alba054/kartjis-notify/internal/service/notification"
 	"alba054/kartjis-notify/shared"
 	"context"
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/julienschmidt/httprouter"
@@ -38,32 +41,49 @@ func (h *NotificationHandler) PostMessageNotification(w http.ResponseWriter, r *
 }
 
 func (h *NotificationHandler) GetMessageNotification(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	// w.Header().Set("Content-Type", "text/event-stream")
-	// w.Header().Set("Cache-Control", "no-cache")
-	// w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
 
-	// flusher, ok := w.(http.Flusher)
+	flusher, ok := w.(http.Flusher)
 
-	// if !ok {
-	// 	panic(exception.NewCustomHttpError(500, "internal server error"))
-	// }
+	if !ok {
+		panic(exception.NewCustomHttpError(500, "internal server error"))
+	}
 
-	// topic := p.ByName("topic")
+	ticker := time.NewTicker(time.Second * 1)
+	reqCtx := r.Context()
+	topic := p.ByName("topic")
+	subId := r.Header.Get("X-Sub-Id")
+	if subId == "" {
+		subId = r.RemoteAddr
+	}
 
-	// for {
-	// 	order, err := c.orderService.GetOrderByOrderId(context.Background(), orderId)
-	// 	helper.ThrowToPanicHandler(err)
+	err := h.notificationService.ActivateSubscriber(reqCtx, topic, subId)
 
-	// 	data := make(map[string]string)
-	// 	data["orderId"] = *helper.HandleNullableStringColumn(order.OrderId)
-	// 	data["status"] = string(order.OrderStatus)
-	// 	streamData, err := json.Marshal(data)
-	// 	helper.ThrowToPanicHandler(err)
+	if err != nil {
+		panic(err)
+	}
 
-	// 	fmt.Fprintf(w, "data: %s\n\n", streamData)
-	// 	flusher.Flush() // Flush the data to the client immediately
+	// Send an initial message immediately after connection is established
+	fmt.Fprintf(w, "data: Connection established\n\n")
+	flusher.Flush() // Ensure the message is sent right away
 
-	// 	// Simulate a delay
-	// 	time.Sleep(2 * time.Second)
-	// }
+	for {
+		select {
+		case <-reqCtx.Done():
+			fmt.Println("connection's closed")
+			h.notificationService.DeactivateSubscriber(reqCtx, topic, subId)
+			ticker.Stop()
+			return
+		case <-ticker.C:
+			message, _ := h.notificationService.GetMessageNotification(reqCtx, topic, subId)
+			if message == "" {
+				continue
+			}
+			fmt.Fprintf(w, "data: %s\n", message)
+			flusher.Flush()
+			fmt.Printf("[X] %s Sent...\n", message)
+		}
+	}
 }

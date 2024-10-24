@@ -10,13 +10,15 @@ func (q *Queue[T]) Dequeue() *T {
 		return nil
 	}
 
+	value := &q.data[0]
+
 	if len(q.data) == 1 {
 		q.data = []T{}
 	} else {
 		q.data = q.data[1:]
 	}
 
-	return &q.data[0]
+	return value
 }
 
 func (q *Queue[T]) Enqueue(v T) {

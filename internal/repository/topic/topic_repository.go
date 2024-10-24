@@ -8,5 +8,5 @@ import (
 
 type TopicRepository interface {
 	FindTopicByName(ctx context.Context, db *sql.DB, name string) (*entity.TopicEntity, error)
-	CreateTopic(ctx context.Context, db *sql.DB, name string) error
+	CreateTopic(ctx context.Context, db *sql.DB, name string) (int64, error)
 }

@@ -5,7 +5,6 @@ import (
 	webresponse "alba054/kartjis-notify/internal/model/web"
 	"alba054/kartjis-notify/shared"
 	"encoding/json"
-	"log"
 	"net/http"
 
 	"github.com/julienschmidt/httprouter"
@@ -15,10 +14,10 @@ func UseErrorHandler(router *httprouter.Router) {
 	router.PanicHandler = func(w http.ResponseWriter, r *http.Request, i interface{}) {
 		err, _ := i.(exception.HttpError)
 
+		// this error block is used to debug the code when there is an internal error
 		if err == nil {
 			internalErr := i.(error)
-			log.Println(internalErr)
-			err = exception.NewCustomHttpError(500, internalErr.Error())
+			panic(internalErr)
 		}
 
 		w.Header().Set("content-type", "application/json")

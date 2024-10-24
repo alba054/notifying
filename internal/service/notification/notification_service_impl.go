@@ -7,9 +7,9 @@ import (
 	"alba054/kartjis-notify/internal/model/request"
 	"alba054/kartjis-notify/internal/repository/message"
 	"alba054/kartjis-notify/internal/repository/topic"
+	"alba054/kartjis-notify/shared"
 	"context"
 	"database/sql"
-	"strings"
 )
 
 type NotificationServiceImpl struct {
@@ -33,39 +33,82 @@ func New(
 	}
 }
 
+// deactivate subscriber
+// allow another listener to listen to this
+func (s *NotificationServiceImpl) DeactivateSubscriber(ctx context.Context, topic, subId string) error {
+	s.messageStorage.Set(topic)
+
+	topicStorage := s.messageStorage.Get(topic)
+
+	topicStorage.Set(subId)
+	subscriber := topicStorage.Get(subId)
+
+	subscriber.Deactivate()
+	return nil
+}
+
+// activate subscriber if not yet activated
+// this will return an error if more than one listener use this
+func (s *NotificationServiceImpl) ActivateSubscriber(ctx context.Context, topic, subId string) error {
+	s.messageStorage.Set(topic)
+
+	topicStorage := s.messageStorage.Get(topic)
+
+	topicStorage.Set(subId)
+	subscriber := topicStorage.Get(subId)
+
+	if subscriber.IsActive() {
+		return exception.NewBadRequestError("subscriber's been active, cannot use the same subId")
+	}
+
+	subscriber.Activate()
+	return nil
+}
+
+func (s *NotificationServiceImpl) GetMessageNotification(ctx context.Context, topic string, subId string) (string, error) {
+	topicStorage := s.messageStorage.Get(topic)
+	// if topic doesn't exist in local storage
+	// there is a posibility that topic hasn't been created in the database
+	if topicStorage == nil {
+		_, err := s.createTopicToDb(ctx, topic) // we insert topic in the db if not yet
+
+		if err != nil {
+			return "", err
+		}
+
+		s.messageStorage.Set(topic)
+		topicStorage = s.messageStorage.Get(topic)
+	}
+
+	topicStorage.Set(subId)
+	subscriber := topicStorage.Get(subId)
+	message := subscriber.Get()
+
+	return message, nil
+}
+
 func (s *NotificationServiceImpl) AddMessageToTopic(ctx context.Context, payload request.PostNotificationMessagePayload) error {
-	if strings.Trim(payload.Id, " ") == "" || strings.Trim(payload.Topic, " ") == "" {
+	if shared.IsEmptyString(payload.Id) || shared.IsEmptyString(payload.Topic) {
 		return exception.NewBadRequestError("id and topic is not formed correctly")
 	}
 
-	if strings.Trim(payload.Message, " ") == "" {
+	if shared.IsEmptyString(payload.Message) {
 		return exception.NewBadRequestError("message can't be empty")
 	}
 
-	topicEty, err := s.topicRepository.FindTopicByName(ctx, s.db, payload.Topic)
+	topicId, err := s.createTopicToDb(ctx, payload.Topic)
 
 	if err != nil {
 		return err
 	}
 
-	if topicEty == nil {
-		// insert topic to database first
-		err = s.topicRepository.CreateTopic(ctx, s.db, payload.Topic)
-		if err != nil {
-			return err
-		}
-
-		// then create a local storage for topic
-		err = s.messageStorage.Set(payload.Topic)
-		if err != nil {
-			return err
-		}
-	}
+	// then create a local storage for topic
+	s.messageStorage.Set(payload.Topic)
 
 	messageEntity := entity.MessageEntity{
 		Id:      payload.Id,
 		Message: sql.NullString{String: payload.Message},
-		TopicId: topicEty.Id,
+		TopicId: topicId,
 	}
 
 	// insert message to database first
@@ -81,4 +124,27 @@ func (s *NotificationServiceImpl) AddMessageToTopic(ctx context.Context, payload
 	s.messageStorage.Get(payload.Topic).PushToMaster(payload.Message)
 
 	return nil
+}
+
+func (s *NotificationServiceImpl) createTopicToDb(ctx context.Context, topic string) (int64, error) {
+	topicEty, err := s.topicRepository.FindTopicByName(ctx, s.db, topic)
+
+	if err != nil {
+		return -1, err
+	}
+
+	var topicId int64
+	if topicEty == nil {
+		// insert topic to database first
+		id, err := s.topicRepository.CreateTopic(ctx, s.db, topic)
+		if err != nil {
+			return -1, err
+		}
+
+		topicId = id
+	} else {
+		topicId = topicEty.Id
+	}
+
+	return topicId, nil
 }

@@ -17,22 +17,23 @@ func New(tableName string) *TopicRepositoryImpl {
 	}
 }
 
-func (r *TopicRepositoryImpl) CreateTopic(ctx context.Context, db *sql.DB, name string) error {
+func (r *TopicRepositoryImpl) CreateTopic(ctx context.Context, db *sql.DB, name string) (int64, error) {
 	queryStmt := fmt.Sprintf("INSERT INTO %s (name) VALUES (?)", r.tableName)
 
 	stmt, err := db.PrepareContext(ctx, queryStmt)
 
 	if err != nil {
-		return err
+		return -1, err
 	}
 
-	_, err = stmt.ExecContext(ctx, name)
+	res, err := stmt.ExecContext(ctx, name)
 
 	if err != nil {
-		return err
+		return -1, err
 	}
 
-	return nil
+	id, err := res.LastInsertId()
+	return id, err
 }
 
 func (r *TopicRepositoryImpl) FindTopicByName(ctx context.Context, db *sql.DB, name string) (*entity.TopicEntity, error) {
