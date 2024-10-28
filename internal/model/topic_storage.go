@@ -48,11 +48,9 @@ func (storage *topicStorage) PushToMaster(message string) {
 	storage.syncSubscriberQ()
 }
 
+// this will run after pushing to master queue
+// this will naively dequeue the messages from master queue as if there is subscriber of the topic
 func (storage *topicStorage) syncSubscriberQ() {
-	if len(storage.subscribers) < 1 {
-		return
-	}
-
 	var message *string
 	wg := sync.WaitGroup{}
 	for {
