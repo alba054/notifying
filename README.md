@@ -3,7 +3,8 @@
 Before running the server you might want to clone or download the source code and create .env file from .env.template.  
 The easiest way to run the server is by cloning or download the source code and run.
 ```
-go run cmd/main.go # this is the case most of the time especially unix user
+# nodb = it will not store any of the message to the database
+go run cmd/main.go [nodb | db] # this is the case most of the time especially unix user
 ```
 
 ## Accessing the API endpoint docs

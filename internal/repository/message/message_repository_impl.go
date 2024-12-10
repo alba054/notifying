@@ -34,37 +34,3 @@ func (r *MessageRepositoryImpl) CreateMessage(ctx context.Context, db *sql.DB, p
 
 	return nil
 }
-
-func (r *MessageRepositoryImpl) FindTopicByName(ctx context.Context, db *sql.DB, name string) (*entity.TopicEntity, error) {
-	queryStmt := fmt.Sprintf("SELECT id, name FROM %s WHERE name = ?", r.tableName)
-
-	stmt, err := db.PrepareContext(ctx, queryStmt)
-
-	if err != nil {
-		return nil, err
-	}
-
-	result, err := stmt.QueryContext(ctx, name)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if !result.Next() {
-		return nil, nil
-	}
-
-	var topic entity.TopicEntity
-	err = result.Scan(&topic.Id, &topic.Name)
-
-	if !result.Next() {
-		return nil, err
-	}
-	err = result.Close()
-
-	if !result.Next() {
-		return nil, err
-	}
-
-	return &topic, nil
-}
